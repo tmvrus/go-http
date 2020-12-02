@@ -101,7 +101,7 @@ func postHandler(w http.ResponseWriter, r *http.Request) {
 
 	var urls []string
 	err = json.Unmarshal(body, &urls)
-	if err != nil || len(urls) > maxAllowedUrls {
+	if err != nil || len(urls) > maxAllowedUrls || len(urls) == 0 {
 		http.Error(w, http.StatusText(http.StatusBadRequest), http.StatusBadRequest)
 		return
 	}
