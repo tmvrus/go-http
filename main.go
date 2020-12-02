@@ -82,7 +82,7 @@ func checkConnectionsCount(next http.HandlerFunc) http.HandlerFunc {
 }
 
 func postHandler(w http.ResponseWriter, r *http.Request) {
-	if r.Method != "POST" {
+	if r.Method != http.MethodPost {
 		http.Error(w, http.StatusText(http.StatusMethodNotAllowed), http.StatusMethodNotAllowed)
 		return
 	}
