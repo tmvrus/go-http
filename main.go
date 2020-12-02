@@ -150,8 +150,11 @@ func getUrlsResult(ctx context.Context, urls []string, jobCount int) (map[string
 	inputChan := make(chan string, urlsCount)
 	outputChan := make(chan workerResult, urlsCount)
 
+	workerContext, cancel := context.WithCancel(ctx)
+	defer cancel()
+
 	for i := 0; i < jobCount; i++ {
-		go worker(ctx, inputChan, outputChan)
+		go worker(workerContext, inputChan, outputChan)
 	}
 	for _, url := range urls {
 		inputChan <- url
@@ -160,6 +163,7 @@ func getUrlsResult(ctx context.Context, urls []string, jobCount int) (map[string
 	for item := range outputChan {
 		if item.err != nil {
 			log.Print(err)
+			cancel()
 			break
 		}
 		result[item.url] = item.result
