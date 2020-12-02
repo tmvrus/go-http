@@ -18,7 +18,7 @@ import (
 type configType struct {
 	port           int
 	maxConnection  int
-	requestTimeout int
+	requestTimeout time.Duration
 	jobCount       int
 }
 
@@ -124,17 +124,7 @@ func postHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	ctx := r.Context()
-	quitChan := make(chan bool, config.jobCount)
-	go func() {
-		<-ctx.Done()
-		println("The client closed the connection prematurely.")
-		for i := 0; i < jobCount; i++ {
-			quitChan <- true
-		}
-		return
-	}()
-
-	urlsResult, err := getUrlsResult(urls, jobCount, quitChan)
+	urlsResult, err := getUrlsResult(ctx, urls, jobCount)
 	if err != nil {
 		log.Print(err)
 		http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
@@ -153,7 +143,7 @@ func postHandler(w http.ResponseWriter, r *http.Request) {
 
 }
 
-func getUrlsResult(urls []string, jobCount int, quitChan chan bool) (map[string]string, error) {
+func getUrlsResult(ctx context.Context, urls []string, jobCount int) (map[string]string, error) {
 	var err error
 	urlsCount := len(urls)
 	result := make(map[string]string)
@@ -161,7 +151,7 @@ func getUrlsResult(urls []string, jobCount int, quitChan chan bool) (map[string]
 	outputChan := make(chan workerResult, urlsCount)
 
 	for i := 0; i < jobCount; i++ {
-		go worker(inputChan, outputChan, quitChan)
+		go worker(ctx, inputChan, outputChan)
 	}
 	for _, url := range urls {
 		inputChan <- url
@@ -178,16 +168,14 @@ func getUrlsResult(urls []string, jobCount int, quitChan chan bool) (map[string]
 			break
 		}
 	}
-	for i := 0; i < jobCount; i++ {
-		quitChan <- true
-	}
+
 	return result, err
 }
 
-func worker(inputChan <-chan string, outputChan chan<- workerResult, quit <-chan bool) {
+func worker(ctx context.Context, inputChan <-chan string, outputChan chan<- workerResult) {
 	for {
 		select {
-		case <-quit:
+		case <-ctx.Done():
 			return
 		case url := <-inputChan:
 			var data workerResult
