@@ -82,6 +82,8 @@ func checkConnectionsCount(next http.HandlerFunc) http.HandlerFunc {
 }
 
 func postHandler(w http.ResponseWriter, r *http.Request) {
+	const maxAllowedUrls = 20
+
 	if r.Method != http.MethodPost {
 		http.Error(w, http.StatusText(http.StatusMethodNotAllowed), http.StatusMethodNotAllowed)
 		return
@@ -99,7 +101,7 @@ func postHandler(w http.ResponseWriter, r *http.Request) {
 
 	var urls []string
 	err = json.Unmarshal(body, &urls)
-	if err != nil || len(urls) > 20 {
+	if err != nil || len(urls) > maxAllowedUrls {
 		http.Error(w, http.StatusText(http.StatusBadRequest), http.StatusBadRequest)
 		return
 	}
