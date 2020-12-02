@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -10,7 +11,6 @@ import (
 	"os"
 	"os/signal"
 	"strconv"
-	"sync"
 	"syscall"
 	"time"
 )
@@ -29,10 +29,7 @@ type workerResult struct {
 }
 
 var (
-	connectionsCount    int
-	connectionsCountMtx = sync.RWMutex{}
-	config              configType
-	shutdownIndicator   bool
+	config configType
 )
 
 func init() {
@@ -43,40 +40,46 @@ func init() {
 }
 
 func main() {
+	server := http.Server{
+		Addr:    ":" + strconv.Itoa(config.port),
+		Handler: checkConnectionsCount(postHandler, config.maxConnection),
+	}
+
+	go func() {
+		if err := server.ListenAndServe(); err != nil && err != http.ErrServerClosed {
+			log.Fatalf("Got http server error: %v", err)
+		}
+	}()
+
 	gracefulStop := make(chan os.Signal)
 	signal.Notify(gracefulStop, syscall.SIGTERM)
 	signal.Notify(gracefulStop, syscall.SIGINT)
-	go func() {
-		sig := <-gracefulStop
-		log.Printf("Received system call: %+v", sig)
-		log.Print("Start shutdown App")
-		shutdownIndicator = true
-		for {
-			if connectionsCount == 0 {
-				break
-			}
-		}
-		log.Print("App shutdown")
-		os.Exit(0)
-	}()
 
-	http.HandleFunc("/post", checkConnectionsCount(postHandler))
-	http.ListenAndServe(":"+strconv.Itoa(config.port), nil)
+	sig := <-gracefulStop
+	log.Printf("Received system call: %+v", sig)
+	log.Print("Start shutdown App")
+
+	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
+	defer cancel()
+
+	if err := server.Shutdown(ctx); err != nil {
+		log.Fatalf("got error while shotdown: %v", err)
+	}
+
+	log.Print("App shutdown")
 }
 
-func checkConnectionsCount(next http.HandlerFunc) http.HandlerFunc {
+func checkConnectionsCount(next http.HandlerFunc, requestLimit int) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		if connectionsCount > config.maxConnection || shutdownIndicator {
+		sema := make(chan struct{}, requestLimit)
+
+		select {
+		case sema <- struct{}{}:
+			next.ServeHTTP(w, r)
+			<-sema
+		default:
 			log.Print("The maximum number of used connections is exhausted.")
 			http.Error(w, http.StatusText(http.StatusTooManyRequests), http.StatusTooManyRequests)
-		} else {
-			connectionsCountMtx.Lock()
-			connectionsCount++
-			connectionsCountMtx.Unlock()
-			next.ServeHTTP(w, r)
-			connectionsCountMtx.Lock()
-			connectionsCount--
-			connectionsCountMtx.Unlock()
 		}
 	}
 }
