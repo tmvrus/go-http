@@ -4,7 +4,6 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
-	"fmt"
 	"io/ioutil"
 	"log"
 	"net/http"
@@ -148,7 +147,10 @@ func postHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	fmt.Fprintf(w, string(jsonResult))
+	if _, err := w.Write(jsonResult); err != nil {
+		log.Println(err.Error())
+	}
+
 }
 
 func getUrlsResult(urls []string, jobCount int, quitChan chan bool) (map[string]string, error) {
