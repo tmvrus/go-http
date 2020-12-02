@@ -35,7 +35,7 @@ var (
 func init() {
 	config.port = 8080
 	config.maxConnection = 100
-	config.requestTimeout = 1
+	config.requestTimeout = time.Second
 	config.jobCount = 4
 }
 
@@ -188,7 +188,7 @@ func worker(ctx context.Context, inputChan <-chan string, outputChan chan<- work
 			data.url = url
 
 			httpClient := &http.Client{
-				Timeout: time.Second * time.Duration(config.requestTimeout),
+				Timeout: config.requestTimeout,
 			}
 			resp, data.err = httpClient.Get(url)
 			if data.err == nil {
