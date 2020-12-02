@@ -8,6 +8,7 @@ import (
 	"io/ioutil"
 	"log"
 	"net/http"
+	"net/url"
 	"os"
 	"os/signal"
 	"strconv"
@@ -107,6 +108,14 @@ func postHandler(w http.ResponseWriter, r *http.Request) {
 	if err != nil || len(urls) > maxAllowedUrls || len(urls) == 0 {
 		http.Error(w, http.StatusText(http.StatusBadRequest), http.StatusBadRequest)
 		return
+	}
+
+	for i := range urls {
+		_, err := url.ParseRequestURI(urls[i])
+		if err != nil {
+			http.Error(w, http.StatusText(http.StatusBadRequest), http.StatusBadRequest)
+			return
+		}
 	}
 
 	urlsCount := len(urls)
