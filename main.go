@@ -124,10 +124,10 @@ func postHandler(w http.ResponseWriter, r *http.Request) {
 		jobCount = urlsCount
 	}
 
+	ctx := r.Context()
 	quitChan := make(chan bool, config.jobCount)
-	notify := w.(http.CloseNotifier).CloseNotify()
 	go func() {
-		<-notify
+		<-ctx.Done()
 		println("The client closed the connection prematurely.")
 		for i := 0; i < jobCount; i++ {
 			quitChan <- true
