@@ -38,7 +38,7 @@ var (
 func init() {
 	config.port = 8080
 	config.maxConnection = 100
-	config.requestTimeout = 3
+	config.requestTimeout = 1
 	config.jobCount = 4
 }
 
